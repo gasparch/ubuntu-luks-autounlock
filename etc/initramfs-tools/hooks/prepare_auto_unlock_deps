@@ -1,0 +1,64 @@
+#!/bin/sh
+PREREQ=""
+prereqs()
+{
+   echo "$PREREQ"
+}
+
+# These prerequisites are provided by the read-edid package. 
+COPY_EXEC_LIST="/usr/bin/get-edid /usr/bin/parse-edid"
+
+# These prerequisites are provided by the base system.
+COPY_EXEC_LIST="$COPY_EXEC_LIST /sbin/iwlist"
+
+# Explicitly specify all kernel modules because automatic dependency resolution
+# is unreliable on many systems.
+MANUAL_ADD_MODULES_LIST="iwlwifi iwlmvm iwldvm mac80211 cfg80211"
+
+echo "Adding $MANUAL_ADD_MODULES_LIST for network detection"
+
+# Generic result code.
+RC=0
+
+case $1 in
+prereqs)
+   prereqs
+   exit 0
+   ;;
+esac
+
+for ii in $COPY_EXEC_LIST
+do
+	if [ ! -x "$ii" ]
+	then
+		echo "Error: $ii is not executable."
+		RC=2
+	fi
+done
+
+if [ "$RC" -ne 0 ]
+then
+	exit "$RC"
+fi
+
+. /usr/share/initramfs-tools/hook-functions
+
+for ii in $COPY_EXEC_LIST
+do
+	copy_exec "$ii"
+done
+
+for ii in $MANUAL_ADD_MODULES_LIST
+do
+	manual_add_modules "$ii"
+done
+
+mkdir -p ${DESTDIR}/lib/firmware
+for ii in `find /lib/firmware/ -name 'iwlwifi-*'`
+do
+	cp -p $ii ${DESTDIR}/lib/firmware/
+done
+
+mkdir -p ${DESTDIR}/etc
+cp -p /usr/local/etc/auto_unlock.conf ${DESTDIR}/etc/auto_unlock.conf
+
